@@ -5,19 +5,34 @@ import { toast } from "sonner";
 
 export function Home() {
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [aggregationName, setAggregationName] = useState("");
+  const [hasPassword, setHasPassword] = useState(false);
+  const [password, setPassword] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
   const createAggregation = useMutation(api.aggregations.createAggregation);
   const userAggregations = useQuery(api.aggregations.getUserAggregations);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleNameSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!aggregationName.trim()) return;
 
+    if (hasPassword) {
+      setShowCreateForm(false);
+      setShowPasswordForm(true);
+    } else {
+      handleCreate();
+    }
+  };
+
+  const handleCreate = async (passwordValue?: string) => {
     setIsCreating(true);
     try {
-      const result = await createAggregation({ name: aggregationName.trim() });
+      const result = await createAggregation({
+        name: aggregationName.trim(),
+        password: passwordValue || (hasPassword ? password : undefined)
+      });
       
       // Show URLs to user
       const adminUrl = `${window.location.origin}/admin/${result.adminUrl}`;
@@ -31,8 +46,12 @@ export function Home() {
       // Copy URLs to clipboard
       navigator.clipboard.writeText(`管理者URL: ${adminUrl}\n提出URL: ${submissionUrl}`);
       
+      // Reset form
       setAggregationName("");
+      setHasPassword(false);
+      setPassword("");
       setShowCreateForm(false);
+      setShowPasswordForm(false);
       
       // Navigate to admin page
       window.open(adminUrl, '_blank');
@@ -42,6 +61,12 @@ export function Home() {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password.trim()) return;
+    handleCreate(password.trim());
   };
 
   return (
@@ -64,7 +89,7 @@ export function Home() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-semibold mb-4">新しい提出物収集を作成</h2>
-            <form onSubmit={handleCreate}>
+            <form onSubmit={handleNameSubmit}>
               <div className="mb-4">
                 <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-2">
                   提出物収集名
@@ -79,10 +104,25 @@ export function Home() {
                   required
                 />
               </div>
+              <div className="mb-4">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={hasPassword}
+                    onChange={(e) => setHasPassword(e.target.checked)}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-slate-700">パスワードをつける</span>
+                </label>
+              </div>
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setShowCreateForm(false)}
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setAggregationName("");
+                    setHasPassword(false);
+                  }}
                   className="flex-1 px-4 py-2 text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50 transition-colors"
                 >
                   キャンセル
@@ -90,6 +130,53 @@ export function Home() {
                 <button
                   type="submit"
                   disabled={isCreating || !aggregationName.trim()}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {hasPassword ? "次へ" : (isCreating ? "作成中..." : "作成")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showPasswordForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-semibold mb-4">パスワードを設定</h2>
+            <p className="text-sm text-slate-600 mb-4">
+              管理者画面にアクセスするためのパスワードを設定してください
+            </p>
+            <form onSubmit={handlePasswordSubmit}>
+              <div className="mb-4">
+                <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
+                  パスワード
+                </label>
+                <input
+                  type="password"
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="パスワードを入力..."
+                  required
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPasswordForm(false);
+                    setShowCreateForm(true);
+                    setPassword("");
+                  }}
+                  className="flex-1 px-4 py-2 text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50 transition-colors"
+                >
+                  戻る
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreating || !password.trim()}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {isCreating ? "作成中..." : "作成"}

@@ -19,17 +19,93 @@ export function Admin() {
   const [newSubmitterName, setNewSubmitterName] = useState("");
   const [items, setItems] = useState<SubmissionItem[]>([]);
   const [downloadPrefix, setDownloadPrefix] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  const aggregation = useQuery(api.aggregations.getAggregationByAdminUrl, 
+  const passwordCheck = useQuery(api.aggregations.checkAdminPasswordRequired,
     adminUrl ? { adminUrl } : "skip"
   );
+  const aggregation = useQuery(api.aggregations.getAggregationByAdminUrl,
+    adminUrl && isAuthenticated ? { adminUrl } : "skip"
+  );
+  const verifyPassword = useMutation(api.aggregations.verifyAdminPassword);
   const addSubmitter = useMutation(api.aggregations.addSubmitter);
   const updateItems = useMutation(api.aggregations.updateSubmissionItems);
   const exportToExcel = useAction(api.exports.exportToExcel);
 
+  // Handle password verification
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password.trim() || !adminUrl) return;
+
+    setIsVerifying(true);
+    try {
+      await verifyPassword({ adminUrl, password: password.trim() });
+      setIsAuthenticated(true);
+      toast.success("認証に成功しました");
+    } catch (error) {
+      toast.error("パスワードが正しくありません");
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   if (!adminUrl) {
     return <div className="p-8 text-center">無効な管理者URLです</div>;
+  }
+
+  if (passwordCheck === undefined) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!passwordCheck?.exists) {
+    return <div className="p-8 text-center">提出物収集が見つかりません</div>;
+  }
+
+  // Show password form if password is required and not authenticated
+  if (passwordCheck.requiresPassword && !isAuthenticated) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-md">
+        <div className="bg-white rounded-lg border border-slate-200 p-8">
+          <h1 className="text-2xl font-bold text-slate-800 mb-2">{passwordCheck.name}</h1>
+          <p className="text-slate-600 mb-6">管理者画面にアクセスするにはパスワードが必要です</p>
+          
+          <form onSubmit={handlePasswordSubmit}>
+            <div className="mb-4">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
+                パスワード
+              </label>
+              <input
+                type="password"
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="パスワードを入力..."
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isVerifying || !password.trim()}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isVerifying ? "認証中..." : "認証"}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // Set authenticated to true if no password is required
+  if (!passwordCheck.requiresPassword && !isAuthenticated) {
+    setIsAuthenticated(true);
   }
 
   if (aggregation === undefined) {

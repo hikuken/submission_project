@@ -5,9 +5,11 @@ import { authTables } from "@convex-dev/auth/server";
 const applicationTables = {
   aggregations: defineTable({
     name: v.string(),
-    createdBy: v.id("users"),
+    createdBy: v.optional(v.id("users")),
     adminUrl: v.string(),
     submissionUrl: v.string(),
+    hasPassword: v.optional(v.boolean()),
+    passwordHash: v.optional(v.string()),
   }).index("by_admin_url", ["adminUrl"])
     .index("by_submission_url", ["submissionUrl"])
     .index("by_created_by", ["createdBy"]),

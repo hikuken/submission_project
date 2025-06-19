@@ -2,6 +2,23 @@ import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
+// Simple password hashing function (for demo purposes)
+function hashPassword(password: string): string {
+  // Simple hash function for demo - in production, use proper hashing
+  let hash = 0;
+  for (let i = 0; i < password.length; i++) {
+    const char = password.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return hash.toString();
+}
+
+function verifyPassword(password: string, hash: string): boolean {
+  const hashedInput = hashPassword(password);
+  return hashedInput === hash;
+}
+
 function generateRandomId(length: number = 8): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
@@ -12,7 +29,10 @@ function generateRandomId(length: number = 8): string {
 }
 
 export const createAggregation = mutation({
-  args: { name: v.string() },
+  args: {
+    name: v.string(),
+    password: v.optional(v.string())
+  },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -22,12 +42,21 @@ export const createAggregation = mutation({
     const adminId = generateRandomId(12);
     const submissionId = generateRandomId(12);
     
-    const aggregationId = await ctx.db.insert("aggregations", {
+    let aggregationData: any = {
       name: args.name,
       createdBy: userId,
       adminUrl: adminId,
       submissionUrl: submissionId,
-    });
+    };
+
+    // Add password protection if provided
+    if (args.password) {
+      const passwordHash = hashPassword(args.password);
+      aggregationData.hasPassword = true;
+      aggregationData.passwordHash = passwordHash;
+    }
+    
+    const aggregationId = await ctx.db.insert("aggregations", aggregationData);
 
     // Add default name field
     await ctx.db.insert("submissionItems", {
@@ -42,6 +71,58 @@ export const createAggregation = mutation({
       aggregationId,
       adminUrl: adminId,
       submissionUrl: submissionId,
+    };
+  },
+});
+
+// Password verification for admin access
+export const verifyAdminPassword = mutation({
+  args: {
+    adminUrl: v.string(),
+    password: v.string()
+  },
+  handler: async (ctx, args) => {
+    const aggregation = await ctx.db
+      .query("aggregations")
+      .withIndex("by_admin_url", (q) => q.eq("adminUrl", args.adminUrl))
+      .unique();
+    
+    if (!aggregation) {
+      throw new Error("提出物収集が見つかりません");
+    }
+
+    // If no password is set, allow access
+    if (!aggregation.hasPassword || !aggregation.passwordHash) {
+      return { success: true };
+    }
+
+    // Verify password
+    const isValid = verifyPassword(args.password, aggregation.passwordHash);
+    if (!isValid) {
+      throw new Error("パスワードが正しくありません");
+    }
+
+    return { success: true };
+  },
+});
+
+// Check if admin URL requires password
+export const checkAdminPasswordRequired = query({
+  args: { adminUrl: v.string() },
+  handler: async (ctx, args) => {
+    const aggregation = await ctx.db
+      .query("aggregations")
+      .withIndex("by_admin_url", (q) => q.eq("adminUrl", args.adminUrl))
+      .unique();
+    
+    if (!aggregation) {
+      return { exists: false, requiresPassword: false };
+    }
+
+    return {
+      exists: true,
+      requiresPassword: !!aggregation.hasPassword,
+      name: aggregation.name
     };
   },
 });
