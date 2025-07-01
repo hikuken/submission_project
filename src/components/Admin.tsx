@@ -181,15 +181,37 @@ export function Admin() {
     return keyMap[itemName] || itemName.replace(/[^\w]/g, '_').toLowerCase();
   };
 
-  const handleDownloadImage = (url: string, submitterName: string, itemName: string) => {
+  const handleDownloadImage = async (url: string, submitterName: string, itemName: string) => {
     const filename = downloadPrefix ?
       `${downloadPrefix}_${submitterName}.jpeg` :
       `${submitterName}.jpeg`;
     
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
+    try {
+      // 画像をfetchしてBlobとして取得
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('画像の取得に失敗しました');
+      }
+      
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      // ダウンロード実行
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      // メモリクリーンアップ
+      URL.revokeObjectURL(blobUrl);
+      
+      toast.success(`${filename} をダウンロードしました`);
+    } catch (error) {
+      console.error('ダウンロードエラー:', error);
+      toast.error('画像のダウンロードに失敗しました');
+    }
   };
 
   const addItem = () => {
