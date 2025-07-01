@@ -183,8 +183,8 @@ export function Admin() {
 
   const handleDownloadImage = (url: string, submitterName: string, itemName: string) => {
     const filename = downloadPrefix ?
-      `${downloadPrefix}_${submitterName}_${itemName}.jpg` :
-      `${submitterName}_${itemName}.jpg`;
+      `${downloadPrefix}_${submitterName}.jpeg` :
+      `${submitterName}.jpeg`;
     
     const a = document.createElement('a');
     a.href = url;
