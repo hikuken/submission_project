@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -11,6 +11,8 @@ export function Submission() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
 
   const aggregation = useQuery(api.aggregations.getAggregationBySubmissionUrl, 
     submissionUrl ? { submissionUrl } : "skip"
@@ -42,9 +44,39 @@ export function Submission() {
 
   const handleSubmitterChange = (name: string) => {
     setSelectedSubmitter(name);
+    setSearchTerm(name);
+    setShowDropdown(false);
     // 提出者名はresponsesに含めない（submitterNameとして別途送信される）
     setErrors({});
   };
+
+  // 検索フィルター関数
+  const filteredSubmitters = aggregation?.submitters?.filter(submitter => 
+    submitter.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setShowDropdown(true);
+    // 完全一致の場合のみ選択状態にする
+    if (aggregation?.submitters?.includes(value)) {
+      setSelectedSubmitter(value);
+    } else {
+      setSelectedSubmitter("");
+    }
+  };
+
+  // ドロップダウンの外側をクリックした時に閉じる
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showDropdown && !document.getElementById('submitter-dropdown')?.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showDropdown]);
 
   // 日本語項目名を英語キーにマッピング
   const getFieldKey = (itemName: string): string => {
@@ -167,24 +199,43 @@ export function Submission() {
               </label>
 
               {item.type === "list" && item.name === "Name" ? (
-                <div>
-                  <select
-                    value={selectedSubmitter}
-                    onChange={(e) => handleSubmitterChange(e.target.value)}
+                <div className="relative" id="submitter-dropdown">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    onFocus={() => setShowDropdown(true)}
                     className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       errors[item.name] ? "border-red-500" : "border-slate-300"
                     }`}
+                    placeholder="お名前を検索・選択してください..."
                     required={item.required}
-                  >
-                    <option value="">お名前を選択してください...</option>
-                    {aggregation.submitters && aggregation.submitters.length > 0 ? (
-                      aggregation.submitters.map((name) => (
-                        <option key={name} value={name}>{name}</option>
-                      ))
-                    ) : (
-                      <option value="" disabled>提出者が登録されていません</option>
-                    )}
-                  </select>
+                  />
+                  {showDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      {!aggregation.submitters || aggregation.submitters.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-slate-500">
+                          提出者が登録されていません
+                        </div>
+                      ) : filteredSubmitters.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-slate-500">
+                          該当する提出者が見つかりません
+                        </div>
+                      ) : (
+                        filteredSubmitters.map((name) => (
+                          <div
+                            key={name}
+                            onClick={() => handleSubmitterChange(name)}
+                            className={`px-3 py-2 cursor-pointer hover:bg-blue-50 transition-colors ${
+                              selectedSubmitter === name ? "bg-blue-100" : ""
+                            }`}
+                          >
+                            {name}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                   {(!aggregation.submitters || aggregation.submitters.length === 0) && (
                     <p className="text-amber-600 text-sm mt-1">
                       ⚠️ 管理者によって提出者が登録されていません。管理者にお問い合わせください。
