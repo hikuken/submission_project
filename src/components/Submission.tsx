@@ -16,6 +16,7 @@ export function Submission() {
 
   console.log("[DEBUG] Submission component rendering, submissionUrl:", submissionUrl);
 
+  // 全てのhooksを条件なしで最初に呼び出す
   const aggregation = useQuery(api.aggregations.getAggregationBySubmissionUrl, 
     submissionUrl ? { submissionUrl } : "skip"
   );
@@ -27,28 +28,6 @@ export function Submission() {
   );
   const submitResponse = useMutation(api.submissions.submitResponse);
   const generateUploadUrl = useMutation(api.submissions.generateUploadUrl);
-
-  console.log("[DEBUG] aggregation:", aggregation);
-  console.log("[DEBUG] submissionUrl:", submissionUrl);
-
-  if (!submissionUrl) {
-    console.log("[DEBUG] No submissionUrl, returning error");
-    return <div className="p-8 text-center">無効な提出URLです</div>;
-  }
-
-  if (aggregation === undefined) {
-    console.log("[DEBUG] aggregation is undefined, showing loading");
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (!aggregation) {
-    console.log("[DEBUG] aggregation is null, showing not found");
-    return <div className="p-8 text-center">提出フォームが見つかりません</div>;
-  }
 
   const handleSubmitterChange = (name: string) => {
     setSelectedSubmitter(name);
@@ -94,6 +73,28 @@ export function Submission() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showDropdown]);
+
+  console.log("[DEBUG] aggregation:", aggregation);
+  console.log("[DEBUG] submissionUrl:", submissionUrl);
+
+  if (!submissionUrl) {
+    console.log("[DEBUG] No submissionUrl, returning error");
+    return <div className="p-8 text-center">無効な提出URLです</div>;
+  }
+
+  if (aggregation === undefined) {
+    console.log("[DEBUG] aggregation is undefined, showing loading");
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!aggregation) {
+    console.log("[DEBUG] aggregation is null, showing not found");
+    return <div className="p-8 text-center">提出フォームが見つかりません</div>;
+  }
 
   // 日本語項目名を英語キーにマッピング
   const getFieldKey = (itemName: string): string => {
