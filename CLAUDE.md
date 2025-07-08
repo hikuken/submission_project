@@ -41,7 +41,7 @@ npm run lint           # TypeScriptコンパイル + Convex検証 + Viteビル�
 ### 主要コンポーネント
 - `Home.tsx` - 収集作成インターフェース
 - `Admin.tsx` - 収集管理・監視画面
-- `Submission.tsx` - 提出者向け動的フォーム
+- `Submission.tsx` - 提出者向け動的フォーム（検索可能な提出者選択機能付き）
 - `SignInForm.tsx` / `SignOutButton.tsx` - 認証UI
 
 ### データベーススキーマ
