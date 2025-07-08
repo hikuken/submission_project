@@ -69,13 +69,19 @@ export function Submission() {
   // ドロップダウンの外側をクリックした時に閉じる
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (showDropdown && !document.getElementById('submitter-dropdown')?.contains(event.target as Node)) {
+      const dropdown = document.getElementById('submitter-dropdown');
+      if (showDropdown && dropdown && !dropdown.contains(event.target as Node)) {
         setShowDropdown(false);
       }
     };
     
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, [showDropdown]);
 
   // 日本語項目名を英語キーにマッピング
