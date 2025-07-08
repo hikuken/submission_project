@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -14,6 +14,8 @@ export function Submission() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
 
+  console.log("[DEBUG] Submission component rendering, submissionUrl:", submissionUrl);
+
   const aggregation = useQuery(api.aggregations.getAggregationBySubmissionUrl, 
     submissionUrl ? { submissionUrl } : "skip"
   );
@@ -26,11 +28,16 @@ export function Submission() {
   const submitResponse = useMutation(api.submissions.submitResponse);
   const generateUploadUrl = useMutation(api.submissions.generateUploadUrl);
 
+  console.log("[DEBUG] aggregation:", aggregation);
+  console.log("[DEBUG] submissionUrl:", submissionUrl);
+
   if (!submissionUrl) {
+    console.log("[DEBUG] No submissionUrl, returning error");
     return <div className="p-8 text-center">無効な提出URLです</div>;
   }
 
   if (aggregation === undefined) {
+    console.log("[DEBUG] aggregation is undefined, showing loading");
     return (
       <div className="flex justify-center items-center min-h-[400px]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -39,6 +46,7 @@ export function Submission() {
   }
 
   if (!aggregation) {
+    console.log("[DEBUG] aggregation is null, showing not found");
     return <div className="p-8 text-center">提出フォームが見つかりません</div>;
   }
 
@@ -50,12 +58,15 @@ export function Submission() {
     setErrors({});
   };
 
-  // 検索フィルター関数
-  const filteredSubmitters = aggregation?.submitters?.filter(submitter => 
-    submitter.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  // 検索フィルター関数をメモ化
+  const filteredSubmitters = useMemo(() => {
+    if (!aggregation?.submitters) return [];
+    return aggregation.submitters.filter(submitter => 
+      submitter.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [aggregation?.submitters, searchTerm]);
 
-  const handleSearchChange = (value: string) => {
+  const handleSearchChange = useCallback((value: string) => {
     setSearchTerm(value);
     setShowDropdown(true);
     // 完全一致の場合のみ選択状態にする
@@ -64,7 +75,7 @@ export function Submission() {
     } else {
       setSelectedSubmitter("");
     }
-  };
+  }, [aggregation?.submitters]);
 
   // ドロップダウンの外側をクリックした時に閉じる
   useEffect(() => {
